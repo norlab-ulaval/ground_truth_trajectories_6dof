@@ -107,7 +107,7 @@ def init_argparse():
                         type=str, required=False,
                         help='Specify a path for the input path')
     parser.add_argument('-o', '--output', 
-                        type=str, required=False, default=os.path.join(os.path.expanduser('~'), 'repos', 'ground_truth_generation', 'output/'),
+                        type=str, required=False, default=os.path.join(os.path.expanduser('~'), 'repos', 'ground_truth_trajectories_6dof', 'output/'),
                         help='Specify a path for the output file, default is output/')
     parser.add_argument('-s', '--save',
                         action='store_true',
