@@ -1,4 +1,6 @@
 /venv
-/config
+.config
+.data
+.lib
 .vscode
 .ipynb_checkpoints
