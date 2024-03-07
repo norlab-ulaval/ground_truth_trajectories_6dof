@@ -10,3 +10,7 @@
 
 ## Introduction
 
+1. execute the RTS_ground_generation script to compute your data :
+```
+./RTS_ground_truth_generation.sh
+```
