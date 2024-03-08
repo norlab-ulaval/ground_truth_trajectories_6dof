@@ -1,4 +1,6 @@
 #! /bin/bash
 
-#mkdir ~/dataset
-python3 RTS_ground_truth_reading.py -i ~/dataset/RTS/20220224/20220224_inter_prism.csv -s
+DATA=~/dataset/RTS/20220224
+mkdir $DATA/output/
+python3 RTS_data_reading.py -p $DATA -s -v
+python3 RTS_ground_truth_generation.py -p $DATA -s -v

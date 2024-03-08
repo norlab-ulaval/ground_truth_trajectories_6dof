@@ -12,8 +12,10 @@ from scipy import interpolate
 import datetime
 
 #----------------- Functions ----------------------
-def convert_bag_to_csv(input, output):
-    print('Converting rosbag into csv file:', input, input.split('.')[0] + '.csv')
+def convert_bag_to_csv(path, output):
+    date = os.path.basename(path)
+    input_file = os.path.join(path, f"{date}_inter_prism.bag")
+    print('Converting rosbag into csv file:', path, input_file.split('.')[0] + '.csv')
     data = []
     with AnyReader([Path(input)]) as reader:
         connections = [x for x in reader.connections if x.topic == "/theodolite_master/theodolite_data"]
@@ -23,18 +25,22 @@ def convert_bag_to_csv(input, output):
             data.append([timestamp, msg.theodolite_id, msg.distance, msg.azimuth, msg.elevation])
     df = pd.DataFrame(data, columns=['timestamp', 'id', 'distance', 'ha', 'va'])
     df.to_csv(output, index=False)
+    if df.empty:
+        print('No data found!')
     return df
 
-def read_data(input):
-    _, extension = os.path.splitext(input)
-    if extension == '.bag':
-        print('\nReading bag...')
-        df = convert_bag_to_csv(input, input.split('.')[0] + '.csv')
-    elif extension == '.csv':
-        print('\nReading csv...')
-        df = pd.read_csv(input)
+def read_data(path):
+    date = os.path.basename(path)
+    csv_file = os.path.join(path, f"{date}_inter_prism.csv")
+    bag_file = os.path.join(path, f"{date}_inter_prism.bag")
+    if not os.path.exists(csv_file):
+        df = convert_bag_to_csv(path, bag_file)
+    elif os.path.exists(csv_file):
+        df = pd.read_csv(csv_file)
     else:
         print('\nInvalid input file')
+    if df.empty:
+        print('No data found!')
     return df
 
 def filter_data(df, distance, horizontal_angle, vertical_angle, split):
@@ -52,21 +58,21 @@ def data_to_3D_points(df):
     print('Raw data converted to 3D points!')
     return df
 
-def save_data(df, input, output, filtering):
-    date = os.path.basename(input)[:8]
+def save_data(df, path, output, filtering):
+    date = os.path.basename(path)
     print('Saving...')
     if filtering == True:
-        output_file = os.path.join(output, f"{date}-ground_truth_filtered.csv")
+        output_file = os.path.join(output, f"{date}_RTS-data_filtered.csv")
         df.to_csv(output_file, index=True)
     else:
-        output_file = os.path.join(output, f"{date}-ground_truth.csv")
+        output_file = os.path.join(output, f"{date}_RTS-data.csv")
         df.to_csv(output_file, index=True)
     print('Data saved to csv file:', output_file)
 
 #----------------- Main ----------------------
-def main(input, output, filtering, distance, horizontal_angle, vertical_angle, split, save, verbose, debug):
+def main(path, output, filtering, distance, horizontal_angle, vertical_angle, split, save, verbose, debug):
     if verbose:
-        print('Input:', input)
+        print('Path:', path)
         print('Output:', output)
         print('Filtering:', filtering)
         print('Distance:', distance)
@@ -76,8 +82,7 @@ def main(input, output, filtering, distance, horizontal_angle, vertical_angle, s
         print('Save:', save)
         print('Verbose:', verbose)
         print('Debug:', debug)
-    df = read_data(input)
-
+    df = read_data(path)
     assert filtering is not None, '--filtering: Apply filtreing or not, not provided'
     if filtering == True:
         assert distance is not None, '--distance: Distance threshold not provided'
@@ -96,18 +101,18 @@ def main(input, output, filtering, distance, horizontal_angle, vertical_angle, s
     df = data_to_3D_points(df)
 
     if save == True:
-        save_data(df, input, output, filtering)
+        save_data(df, path, output, filtering)
     return df
 
 def init_argparse():
     parser = argparse.ArgumentParser()
 
     #---------------- Input/Output ---------------------
-    parser.add_argument('-i', '--input', 
-                        type=str, required=False,
-                        help='Specify a path for the input path')
+    parser.add_argument('-p', '--path', 
+                        type=dir_path, required=False,
+                        help='Specify a path for the input data path')
     parser.add_argument('-o', '--output', 
-                        type=str, required=False, default=os.path.join(os.path.expanduser('~'), 'repos', 'ground_truth_trajectories_6dof', 'output/'),
+                        type=str, required=False,
                         help='Specify a path for the output file, default is output/')
     parser.add_argument('-s', '--save',
                         action='store_true',
@@ -139,9 +144,18 @@ def init_argparse():
                         help='Debug mode. Print all debug messages.')
     return parser
 
+#--------------- Types ------------------
+def dir_path(path):
+    if os.path.isdir(path):
+        if path.endswith('/'):
+            path = path[:-1]
+        return path
+    else:
+        raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
+
 if __name__ == '__main__':
     parser = init_argparse()
     args = parser.parse_args()
-    main(args.input, args.output, args.filtering, args.distance, args.horizontal_angle, args.vertical_angle, args.split, args.save, args.verbose, args.debug)
-
-
+    if args.output is None:
+        args.output = os.path.join(args.path, 'output')
+    main(args.path, args.output, args.filtering, args.distance, args.horizontal_angle, args.vertical_angle, args.split, args.save, args.verbose, args.debug)
