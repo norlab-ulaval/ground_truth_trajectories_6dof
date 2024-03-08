@@ -55,7 +55,7 @@ def data_to_3D_points(df):
     df['X'] = (df['distance'] + 0.01) * np.cos(np.deg2rad(90-df['ha'])) * np.sin(np.deg2rad(df['va']))
     df['Y'] = (df['distance'] + 0.01) * np.sin(np.deg2rad(90-df['ha'])) * np.sin(np.deg2rad(df['va']))
     df['Z'] = (df['distance']+0.01) * np.cos(np.deg2rad(df['va']))
-    print('Raw data converted to 3D points!')
+    # print('Raw data converted to 3D points!')
     return df
 
 def save_data(df, path, output, filtering):
@@ -63,10 +63,10 @@ def save_data(df, path, output, filtering):
     print('Saving...')
     if filtering == True:
         output_file = os.path.join(output, f"{date}_RTS-data_filtered.csv")
-        df.to_csv(output_file, index=True)
+        df.to_csv(output_file, index=False)
     else:
         output_file = os.path.join(output, f"{date}_RTS-data.csv")
-        df.to_csv(output_file, index=True)
+        df.to_csv(output_file, index=False)
     print('Data saved to csv file:', output_file)
 
 #----------------- Main ----------------------
