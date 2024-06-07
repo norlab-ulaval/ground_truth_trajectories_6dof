@@ -8,6 +8,7 @@ from tqdm import tqdm
 from RTS_data_reading import data_to_3D_points
 import matplotlib.pyplot as plt
 from point_to_point import minimization
+from visualize import *
 
 #----------------- Constants ----------------------
 DISTANCE_LIDAR_TOP_TO_LIDAR_ORIGIN = 0.063 # In meter, for RS32 on warthog
@@ -45,40 +46,11 @@ def compute_transformation_to_lidar_frame(df_calibration, distance_lidar_top_to_
     df_calibration_numpy = T @ df_calibration_numpy.T
 
     df_calibration = pd.DataFrame(df_calibration_numpy[:3, :].T, columns=df_calibration.columns, index=df_calibration.index)
-    # df_calibration = pd.DataFrame(df_calibration_numpy[:,:3], columns=df_calibration.columns, index=df_calibration.index)
     df_calibration.drop(index=['lidar_left', 'lidar_right', 'lidar_top'], inplace=True)
     if debug == True:
         print('Transformation matrix of theodolite to LiDAR frame :\n', T)
         print('\nSensors coordinates in LiDAR frame :', df_calibration)
     return df_calibration
-
-#----------------- Display Functions ----------------------
-
-def display_calibration_data(df_calibration):
-    fig = plt.figure()
-    ax = plt.axes(projection="3d")
-
-    ax.scatter3D(df_calibration.loc['prism1']['X'], df_calibration.loc['prism1']['Y'], df_calibration.loc['prism1']['Z'], color = "C1")
-    ax.scatter3D(df_calibration.loc['prism2']['X'], df_calibration.loc['prism2']['Y'], df_calibration.loc['prism2']['Z'], color = "C2")
-    ax.scatter3D(df_calibration.loc['prism3']['X'], df_calibration.loc['prism3']['Y'], df_calibration.loc['prism3']['Z'], color = "C3")
-    ax.scatter3D(df_calibration.loc['lidar_origin']['X'], df_calibration.loc['lidar_origin']['Y'], df_calibration.loc['lidar_origin']['Z'], color = "C0")
-
-    ax.scatter3D(df_calibration.loc['gnss1']['X'], df_calibration.loc['gnss1']['Y'], df_calibration.loc['gnss1']['Z'], color = "C4")
-    ax.scatter3D(df_calibration.loc['gnss2']['X'], df_calibration.loc['gnss2']['Y'], df_calibration.loc['gnss2']['Z'], color = "C5")
-    ax.scatter3D(df_calibration.loc['gnss3']['X'], df_calibration.loc['gnss3']['Y'], df_calibration.loc['gnss3']['Z'], color = "C6")
-
-    ax.text(df_calibration.loc['prism1']['X']-0.02, df_calibration.loc['prism1']['Y']+0.02, df_calibration.loc['prism1']['Z']+0.02, 'prism1')
-    ax.text(df_calibration.loc['prism2']['X']-0.02, df_calibration.loc['prism2']['Y']+0.02, df_calibration.loc['prism2']['Z']+0.02, 'prism2')
-    ax.text(df_calibration.loc['prism3']['X']-0.02, df_calibration.loc['prism3']['Y']+0.02, df_calibration.loc['prism3']['Z']+0.02, 'prism3')
-    ax.text(df_calibration.loc['lidar_origin']['X']-0.02, df_calibration.loc['lidar_origin']['Y']+0.02, df_calibration.loc['lidar_origin']['Z']+0.02, 'lidar_origin')
-
-    ax.text(df_calibration.loc['gnss1']['X']-0.02, df_calibration.loc['gnss1']['Y']+0.02, df_calibration.loc['gnss1']['Z']+0.02, 'gnss1')
-    ax.text(df_calibration.loc['gnss2']['X']-0.02, df_calibration.loc['gnss2']['Y']+0.02, df_calibration.loc['gnss2']['Z']+0.02, 'gnss2')
-    ax.text(df_calibration.loc['gnss3']['X']-0.02, df_calibration.loc['gnss3']['Y']+0.02, df_calibration.loc['gnss3']['Z']+0.02, 'gnss3')
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.set_title('Calibration data')
 
 #----------------- Functions ----------------------
 def read_data(path, debug):
@@ -99,15 +71,6 @@ def read_data(path, debug):
         print(df)
     return df
 
-def read_ground_control_points(path, df):
-    input = os.path.join(path, 'GCP.txt')
-    df_ground_control_points = pd.read_csv(input, delimiter=' ,', names=['id', 'marker', 'status', 'ha', 'va', 'distance', 'sec', 'nsec'], skiprows=[0], engine='python')
-    if df_ground_control_points.empty:
-        print('No ground control points found!')
-    return df
-
-def generate_ground_truth(df, df_ground_control_points, debug):
-    return df
 
 def calibration(path, output, save, distance_lidar_top_to_lidar_origin, debug):
     date = os.path.basename(path)
@@ -130,41 +93,39 @@ def calibration(path, output, save, distance_lidar_top_to_lidar_origin, debug):
     if debug == True:
         print("Sensors data for calibration:", df_calibration)   
     df_calibration = compute_transformation_to_lidar_frame(df_calibration, distance_lidar_top_to_lidar_origin, debug)
-    if save == True:
-        df_calibration_raw.to_csv(output, f"{date}_calibration_file.csv", index=True)
     return df_calibration
 
-def generate_ground_truth_pose(df, df_calibration,debug):
-    #for df['id'] = 1 compute the transformation with df_calibration['id'] = 1
+def read_ground_control_points(path, debug):
+    input = os.path.join(path, 'GCP.txt')
+    df_ground_control_points = pd.read_csv(input, delimiter=' ,', names=['id', 'marker', 'status', 'ha', 'va', 'distance', 'sec', 'nsec'], skiprows=[0], engine='python')
+    if df_ground_control_points.empty:
+        print('No ground control points found!')
+    df_ground_control_points = data_to_3D_points(df_ground_control_points)
+    df_ground_control_points.drop(columns=['marker', 'status', 'ha', 'va', 'distance', 'sec', 'nsec'], inplace=True)
+    if debug == True:
+        print('Ground control points data:', df_ground_control_points)
+    return df_ground_control_points
 
-    prism1 = df_calibration.loc['prism1']
-    prism2 = df_calibration.loc['prism2']
-    prism3 = df_calibration.loc['prism3']
-    df = df.to_numpy()
-    # print(df[0][5:8])
-    # print(np.transpose(df[0][5:8]))
-    # print(prism1)
-    # for index in df[:, 1]:
-    #     if index == 1:
-    #         print(df[5:8])
-    #         df['T'] = minimization(df[5:8].T, prism1)
-    # print(df)
-
-
-        # df['T'] = minimization(df[['X','Y', 'Z']], df_RTS_calibration[['X','Y', 'Z']])
-        # for index, row in df_id.iterrows():
-        #     df.loc[index, 'T'] = minimization(row['X', 'Y', 'Z'], df_RTS_calibration_id)
-    # print(df)
-    # df['T'] = minimization(df.loc['X', 'Y', 'Z'], df_calibration)
-    # df['T'] = minimization(df, df_calibration)
-    # return df
+# def generate_ground_truth(df, df_ground_control_points, df_calibration, debug):
+#     for rows in df_ground_control_points:
+#         if df_ground_control_points['id'] == 1:
+#             df_ground_control_points['T'] = 1
+#     if debug == True:
+#         print('Ground truth data:', df_ground_control_points)
+#     return df
     
-def save_data(df, path, output):
+def save_data(df, df_calibration, df_ground_control_points, path, output):
     date = os.path.basename(path)
     print('Saving...')
     output_file = os.path.join(output, f"RTS-ground_truth-{date}.csv")
+
     df.to_csv(output_file, index=False)
+    df_calibration.to_csv(os.path.join(output, f"calibration_file.csv"), index=True)
+    df_ground_control_points.to_csv(os.path.join(output, f"ground_control_points.csv"), index=False)
+
     print('Data saved to csv file:', output_file)
+    print('Calibration data saved to csv file:', os.path.join(output, f"calibration_file.csv"))
+    print('Ground control points saved to csv file:', os.path.join(output, f"ground_control_points.csv"))
 
 #----------------- Main ----------------------
 def main(path, output, save, verbose, debug, display):
@@ -177,19 +138,20 @@ def main(path, output, save, verbose, debug, display):
         print('Display:', display)
 
     df = read_data(path, debug)
-    df_ground_control_points = read_ground_control_points(path, df)
-    # df = generate_ground_truth(df, df_ground_control_points, debug)
 
     df_calibration = calibration(path, output, save, DISTANCE_LIDAR_TOP_TO_LIDAR_ORIGIN,debug)
-    df = generate_ground_truth_pose(df, df_calibration, debug)
+
+    df_ground_control_points = read_ground_control_points(path, debug)
+
+    # df = generate_ground_truth(df, df_ground_control_points, df_calibration, debug)
 
     if display == True:
         display_calibration_data(df_calibration)
+        display_ground_truth(df_ground_control_points)
         plt.show()
 
     if save == True:
-        save_data(df, path, output)
-
+        save_data(df, df_calibration, df_ground_control_points, path, output)
     return df
 
 def init_argparse():

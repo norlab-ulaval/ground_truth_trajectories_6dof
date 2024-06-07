@@ -5,12 +5,20 @@
 
 1. execute the script to create python venv environment:
 ```
+cd ~/ros2_ws/ground_truth_generation/
 ./create_venv.sh
 ```
 
 ## Introduction
 
-1. execute the RTS_ground_generation script to compute your data :
+1. download the dataset from the following link:
 ```
-./RTS_ground_truth_generation.sh
+mkdir -p ~/dataset/RTS/ && cd ~/dataset/RTS/
+wget "dataset_link"
+```
+
+2. execute the ground_truth_RTS generation script to compute your data :
+```
+cd ~/ros2_ws/ground_truth_generation/
+./ground_truth_RTS.sh
 ```
