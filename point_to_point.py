@@ -20,3 +20,4 @@ def minimization(P, Q):
     T[0:3, 0:3] = R
     T[0:3, 3] = t
     return T
+
