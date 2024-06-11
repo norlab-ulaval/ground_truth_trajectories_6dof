@@ -99,6 +99,7 @@ def main(path, output, filtering, distance, horizontal_angle, vertical_angle, sp
         df = filter_data(df, distance, horizontal_angle, vertical_angle, split)
 
     df = data_to_3D_points(df)
+    df.drop(columns=['distance', 'ha', 'va'], inplace=True)
 
     if save == True:
         save_data(df, path, output, filtering)

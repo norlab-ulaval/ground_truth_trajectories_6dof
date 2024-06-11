@@ -30,10 +30,19 @@ def display_calibration_data(df_calibration):
     ax.set_zlabel('Z')
     ax.set_title('Calibration data')
 
-def display_ground_truth(df_GCP):
+def display_ground_control_points(df_GCP, title):
     fig = plt.figure()
     ax = plt.axes()
     ax.scatter(df_GCP['X'], df_GCP['Y'], color = "C1")
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
-    ax.set_title('Ground control points')
+    ax.set_title(title)
+
+def display_ground_truth(df):
+    fig = plt.figure()
+    ax = plt.axes(projection="3d")
+    ax.scatter3D(df['X'], df['Y'], df['Z'], color = "C1")
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_title('Ground truth data')

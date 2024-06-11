@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from RTS_data_reading import data_to_3D_points
 import matplotlib.pyplot as plt
-from point_to_point import minimization
+
+from RTS_data_reading import data_to_3D_points
+from point_to_point import *
 from visualize import *
 
 #----------------- Constants ----------------------
@@ -36,21 +37,21 @@ def compute_transformation_to_lidar_frame(df_calibration, distance_lidar_top_to_
     ny = df_calibration.loc['lidar_y'] - df_calibration.loc['lidar_origin']
     nz = df_calibration.loc['lidar_z'] - df_calibration.loc['lidar_origin']
 
-    T = np.eye(4)
-    T[:3, :3] = np.array([nx, ny, nz])  # Reshape the vectors to match the dimensions of the transformation matrix
-    T[:3, 3] = df_calibration.loc['lidar_origin']
-    T = np.linalg.inv(T)
+    T_from_theodolite_to_lidar = np.eye(4)
+    T_from_theodolite_to_lidar[:3, :3] = np.array([nx, ny, nz])  # Reshape the vectors to match the dimensions of the transformation matrix
+    T_from_theodolite_to_lidar[:3, 3] = df_calibration.loc['lidar_origin']
+    T_from_theodolite_to_lidar = np.linalg.inv(T_from_theodolite_to_lidar)
 
     df_calibration_numpy = df_calibration.to_numpy()
     df_calibration_numpy = np.append(df_calibration_numpy, np.ones((df_calibration_numpy.shape[0], 1)), axis=1)
-    df_calibration_numpy = T @ df_calibration_numpy.T
+    df_calibration_numpy = T_from_theodolite_to_lidar @ df_calibration_numpy.T
 
     df_calibration = pd.DataFrame(df_calibration_numpy[:3, :].T, columns=df_calibration.columns, index=df_calibration.index)
     df_calibration.drop(index=['lidar_left', 'lidar_right', 'lidar_top'], inplace=True)
     if debug == True:
-        print('Transformation matrix of theodolite to LiDAR frame :\n', T)
+        print('Transformation matrix of theodolite to LiDAR frame :\n', T_from_theodolite_to_lidar)
         print('\nSensors coordinates in LiDAR frame :', df_calibration)
-    return df_calibration
+    return df_calibration,T_from_theodolite_to_lidar
 
 #----------------- Functions ----------------------
 def read_data(path, debug):
@@ -70,7 +71,6 @@ def read_data(path, debug):
         print(input)
         print(df)
     return df
-
 
 def calibration(path, output, save, distance_lidar_top_to_lidar_origin, debug):
     date = os.path.basename(path)
@@ -101,28 +101,34 @@ def read_ground_control_points(path, debug):
     if df_ground_control_points.empty:
         print('No ground control points found!')
     df_ground_control_points = data_to_3D_points(df_ground_control_points)
-    df_ground_control_points.drop(columns=['marker', 'status', 'ha', 'va', 'distance', 'sec', 'nsec'], inplace=True)
+    df_ground_control_points.drop(columns=['marker', 'ha', 'va', 'distance' ,'sec', 'nsec'], inplace=True)
+    P1, P2, P3, T_theodolite_1, T_from_theodolite_2_to_theodolite_1, T_from_theodolite_3_to_theodolite_1 = compute_theodolite_Transform(df_ground_control_points, reference_frame=1)
+    df_list = []
+    for frame in [P1, P2, P3]:
+        df_temp = pd.DataFrame(columns=['X', 'Y', 'Z'])
+        df_temp['X'] = frame.T[:, 0]
+        df_temp['Y'] = frame.T[:, 1]
+        df_temp['Z'] = frame.T[:, 2]
+        df_list.append(df_temp)
+    df_ground_control_points_frame_1 = pd.concat(df_list)
     if debug == True:
-        print('Ground control points data:', df_ground_control_points)
-    return df_ground_control_points
+        print("Ground control point 3D point:", df_ground_control_points_frame_1)
+    return df_ground_control_points_frame_1, T_theodolite_1, T_from_theodolite_2_to_theodolite_1, T_from_theodolite_3_to_theodolite_1
 
-# def generate_ground_truth(df, df_ground_control_points, df_calibration, debug):
-#     for rows in df_ground_control_points:
-#         if df_ground_control_points['id'] == 1:
-#             df_ground_control_points['T'] = 1
-#     if debug == True:
-#         print('Ground truth data:', df_ground_control_points)
-#     return df
+def generate_ground_truth(df, T_theodolite_1, T_from_theodolite_2_to_theodolite_1, T_from_theodolite_3_to_theodolite_1, T_from_theodolite_to_lidar, debug):
+    df_ground_truth_theodolite_1 = apply_theodolite_Transform_to_data(df, T_theodolite_1, T_from_theodolite_2_to_theodolite_1, T_from_theodolite_3_to_theodolite_1)
+    # df_ground_truth_lidar_frame =  apply_lidar_Transform_to_data(df_ground_truth_theodolite_1, T_from_theodolite_to_lidar)
+    if debug == True:
+        print('Ground truth df:', df_ground_truth_theodolite_1)
+    return df_ground_truth_theodolite_1
     
-def save_data(df, df_calibration, df_ground_control_points, path, output):
+def save_data(df, df_calibration, df_ground_control_points_frame_1, path, output):
     date = os.path.basename(path)
     print('Saving...')
     output_file = os.path.join(output, f"RTS-ground_truth-{date}.csv")
-
     df.to_csv(output_file, index=False)
     df_calibration.to_csv(os.path.join(output, f"calibration_file.csv"), index=True)
-    df_ground_control_points.to_csv(os.path.join(output, f"ground_control_points.csv"), index=False)
-
+    df_ground_control_points_frame_1.to_csv(os.path.join(output, f"ground_control_points.csv"), index=False)
     print('Data saved to csv file:', output_file)
     print('Calibration data saved to csv file:', os.path.join(output, f"calibration_file.csv"))
     print('Ground control points saved to csv file:', os.path.join(output, f"ground_control_points.csv"))
@@ -139,19 +145,20 @@ def main(path, output, save, verbose, debug, display):
 
     df = read_data(path, debug)
 
-    df_calibration = calibration(path, output, save, DISTANCE_LIDAR_TOP_TO_LIDAR_ORIGIN,debug)
+    df_calibration, T_from_theodolite_to_lidar = calibration(path, output, save, DISTANCE_LIDAR_TOP_TO_LIDAR_ORIGIN,debug)
 
-    df_ground_control_points = read_ground_control_points(path, debug)
+    df_ground_control_points_frame_1, T_theodolite_1, T_from_theodolite_2_to_theodolite_1, T_from_theodolite_3_to_theodolite_1 = read_ground_control_points(path, debug)
 
-    # df = generate_ground_truth(df, df_ground_control_points, df_calibration, debug)
+    df_ground_truth_theodolite_1 = generate_ground_truth(df, T_theodolite_1, T_from_theodolite_2_to_theodolite_1, T_from_theodolite_3_to_theodolite_1, T_from_theodolite_to_lidar, debug)
 
     if display == True:
         display_calibration_data(df_calibration)
-        display_ground_truth(df_ground_control_points)
+        display_ground_control_points(df_ground_control_points_frame_1, 'Ground control points')
+        display_ground_truth(df_ground_truth_theodolite_1)
         plt.show()
 
     if save == True:
-        save_data(df, df_calibration, df_ground_control_points, path, output)
+        save_data(df, df_calibration, df_ground_control_points_frame_1, path, output)
     return df
 
 def init_argparse():

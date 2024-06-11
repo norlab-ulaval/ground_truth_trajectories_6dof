@@ -4,3 +4,4 @@ jupyterlab
 rosbags
 scipy
 tqdm
+matplotlib
