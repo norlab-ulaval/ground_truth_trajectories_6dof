@@ -33,16 +33,23 @@ def display_calibration_data(df_calibration):
 def display_ground_control_points(df_GCP, title):
     fig = plt.figure()
     ax = plt.axes()
-    ax.scatter(df_GCP['X'], df_GCP['Y'], color = "C1")
+    ax.scatter(df_GCP['X'], df_GCP['Y'], c=df_GCP['Z'], cmap='viridis')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
+    ax.legend()
     ax.set_title(title)
 
 def display_ground_truth(df):
     fig = plt.figure()
     ax = plt.axes(projection="3d")
-    ax.scatter3D(df['X'], df['Y'], df['Z'], color = "C1")
+    for id_val in df['id'].unique():
+        ax.scatter3D(df[df['id'] == id_val]['X'], 
+                    df[df['id'] == id_val]['Y'], 
+                    df[df['id'] == id_val]['Z'], 
+                    label=f'Theodolite {id_val}', 
+                    color=f'C{id_val}')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
+    ax.legend()
     ax.set_title('Ground truth data')

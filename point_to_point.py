@@ -23,7 +23,7 @@ def minimization(P, Q):
     return T
 
 def compute_theodolite_Transform(df_ground_control_points, reference_frame):
-    df_ground_control_points['T'] = None  # Initialize with None
+    df_ground_control_points['T'] = None
     
     P1 = []
     P2 = []
@@ -90,36 +90,6 @@ def compute_theodolite_Transform(df_ground_control_points, reference_frame):
             P2 = T_3_2 @ P2
         return P1, P2, P3, T_3_1, T_3_2, T_I
 
-# def apply_theodolite_Transform_to_data(df, T_theodolite_1, T_from_theodolite_2_to_theodolite_1, T_from_theodolite_3_to_theodolite_1):
-#     points_thedolite_1 = []
-#     points_thedolite_2 = []
-#     points_thedolite_3 = []
-
-#     for index, row in df.iterrows():
-#         id = int(row['id'])
-#         timestamp = row['timestamp']
-#         X = float(row['X'])
-#         Y = float(row['Y'])
-#         Z = float(row['Z'])
-
-#         if id == 1:
-#             points_thedolite_1.append(np.array([timestamp, X, Y, Z, 1]).T)
-#         if id == 2:
-#             points_thedolite_2.append(np.array([timestamp, X, Y, Z, 1]).T)
-#         if id == 3:
-#             points_thedolite_3.append(np.array([timestamp, X, Y, Z, 1]).T)
-
-#     points_thedolite_1 = np.array(points_thedolite_1).T
-#     points_thedolite_2 = np.array(points_thedolite_2).T
-#     points_thedolite_3 = np.array(points_thedolite_3).T
-
-#     # points_thedolite_1 = T_theodolite_1 @ points_thedolite_1
-#     points_thedolite_2 = T_from_theodolite_2_to_theodolite_1 @ points_thedolite_2
-#     points_thedolite_3 = T_from_theodolite_3_to_theodolite_1 @ points_thedolite_3
-    
-#     print('Ground truth data:', points_thedolite_1)
-    
-#     return points_thedolite_1, points_thedolite_2, points_thedolite_3
 
 def apply_theodolite_Transform_to_data(df, T_theodolite_1, T_from_theodolite_2_to_theodolite_1, T_from_theodolite_3_to_theodolite_1):
     df_theodolite_1 = df[df['id'] == 1]
@@ -160,21 +130,24 @@ def apply_theodolite_Transform_to_data(df, T_theodolite_1, T_from_theodolite_2_t
         df_theodolite_3.loc[index, 'Z'] = point[2]
 
     df_ground_truth_theodolite_1 = pd.concat([df_theodolite_1, df_theodolite_2, df_theodolite_3]).sort_values('timestamp')
-
-    # print('Ground truth data:', df)
     return df_ground_truth_theodolite_1
 
-# def apply_lidar_Transform_to_data(df_ground_truth_theodolite_1, T_from_theodolite_to_lidar):
-#     df_ground_truth_lidar_frame = df_ground_truth_theodolite_1.copy()
-#     for index, row in df_ground_truth_lidar_frame.iterrows():
-#         timestamp = row['timestamp']
-#         X = float(row['X'])
-#         Y = float(row['Y'])
-#         Z = float(row['Z'])
-#         point = np.array([X, Y, Z, 1]).T
-#         point = T_from_theodolite_to_lidar @ point
-#         df_ground_truth_lidar_frame.loc[index, 'X'] = point[0]
-#         df_ground_truth_lidar_frame.loc[index, 'Y'] = point[1]
-#         df_ground_truth_lidar_frame.loc[index, 'Z'] = point[2]
-    
-#     return df_ground_truth_lidar_frame
+def generate_ground_truth_lidar_frame(df_ground_truth_theodolite_1, df_calibration):
+    # df_theodolite_frame = df_ground_truth_theodolite_1[['X', 'Y', 'Z']].to_numpy().T
+    df_theodolite_frame = df_ground_truth_theodolite_1
+    P_lidar_frame = df_calibration.to_numpy()[0:3, :].T
+
+    df_theodolite_frame['group'] = (df_theodolite_frame.groupby('id')).apply(lambda x: pd.Series(np.arange(len(x)), x.index))
+    print(df_theodolite_frame)
+    # df_theodolite_frame.groupby('id' == group).count()
+
+    # df_theodolite_frame['group'] = df_theodolite_frame.groupby('id').cumcount()
+    # print(df_theodolite_frame['group'][0:50].to_markdown())
+    # print(df_theodolite_frame[0:50].to_markdown())
+
+    # blocks = df_theodolite_frame.groupby(['id', 'group']).filter(lambda x: len(x) == 3 and all(x['id'] == [1, 2, 3])).reset_index(drop=True)
+    # print(blocks)
+
+    # T_from_lidar_to_theodolite = minimization(P_lidar_frame, Q_theodolite_frame)
+    # print(T_from_lidar_to_theodolite)
+    return None

@@ -51,11 +51,16 @@ def filter_data(df, distance, horizontal_angle, vertical_angle, split):
     print('Data filtered!')
     return df
 
-def data_to_3D_points(df):
+def data_to_3D_points_rad(df):
+    df['X'] = (df['distance'] + 0.01) * np.cos(np.pi/2-df['ha']) * np.sin((df['va']))
+    df['Y'] = (df['distance'] + 0.01) * np.sin(np.pi/2-df['ha']) * np.sin((df['va']))
+    df['Z'] = (df['distance']+0.01) * np.cos((df['va']))
+    return df
+
+def data_to_3D_points_deg_to_rad(df):
     df['X'] = (df['distance'] + 0.01) * np.cos(np.deg2rad(90-df['ha'])) * np.sin(np.deg2rad(df['va']))
     df['Y'] = (df['distance'] + 0.01) * np.sin(np.deg2rad(90-df['ha'])) * np.sin(np.deg2rad(df['va']))
     df['Z'] = (df['distance']+0.01) * np.cos(np.deg2rad(df['va']))
-    # print('Raw data converted to 3D points!')
     return df
 
 def save_data(df, path, output, filtering):
@@ -98,7 +103,7 @@ def main(path, output, filtering, distance, horizontal_angle, vertical_angle, sp
 
         df = filter_data(df, distance, horizontal_angle, vertical_angle, split)
 
-    df = data_to_3D_points(df)
+    df = data_to_3D_points_rad(df)
     df.drop(columns=['distance', 'ha', 'va'], inplace=True)
 
     if save == True:
